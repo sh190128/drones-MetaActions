@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+data/*
+drone_ppo_tensorboard/
+models/*
+visualize/*
+
+!data/.gitkeep
+!models/.gitkeep
+!visualize/.gitkeep 
