@@ -3,10 +3,9 @@ __pycache__/
 *$py.class
 
 data/*
-drone_ppo_tensorboard/
-models/*
-visualize/*
-
 !data/.gitkeep
+drone_ppo_tensorboard/*
+models/*
 !models/.gitkeep
-!visualize/.gitkeep 
+visualize/*
+!visualize/.gitkeep
