@@ -13,6 +13,9 @@ y = np.load('./data/processed_y_standard.npy')
 train_size = int(0.8 * len(X))
 X_test = X[train_size:]
 y_test = y[train_size:]
+# X_test = np.load('./data/processed_X_short.npy')
+# y_test = np.load('./data/processed_y_short.npy')
+
 
 print(X_test.shape)
 print(y_test.shape)

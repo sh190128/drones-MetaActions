@@ -51,40 +51,40 @@ class DroneEnv(gym.Env):
         target_position = self.target
         
         
-        speed_change = action[0] * 100  # 速度调整范围 ±100
-        heading_change = action[1] * 0.1  # 航向角调整范围 ±0.1 弧度
-        trajectory_change = action[2] * 0.1  # 弹道倾角调整范围 ±0.1 弧度
+        V_change = action[0] * 100  # 速度调整范围 ±100
+        psi_change = action[1] * 0.1  # 航向角调整范围 ±0.1 弧度
+        theta_change = action[2] * 0.1  # 弹道倾角调整范围 ±0.1 弧度
         
         
         # 更新速度
-        new_speed = self.state[0] + speed_change
-        new_speed = max(0, min(new_speed, 10000))
+        new_V = self.state[0] + V_change
+        new_V = max(0, min(new_V, 10000))
         
         # 更新航向角和弹道倾角
-        new_heading = self.state[4] + heading_change
-        new_trajectory = self.state[5] + trajectory_change
+        new_psi = self.state[4] + psi_change
+        new_theta = self.state[5] + theta_change
         
         
         '''
             FIXME: 位置计算当前为简化模型，仅按照地球为规则球形计算。更改计算公式
         '''
         # 计算新的经纬度，地心距
-        horizontal_speed = new_speed * np.cos(new_trajectory)
-        vertical_speed = new_speed * np.sin(new_trajectory)
+        horizontal_V = new_V * np.cos(new_theta)
+        vertical_V = new_V * np.sin(new_theta)
         
         earth_radius = self.state[3]
-        dlambda = horizontal_speed * self.dt * np.sin(new_heading) / (earth_radius * np.cos(self.state[2]))
-        dphi = horizontal_speed * self.dt * np.cos(new_heading) / earth_radius
+        dlambda = horizontal_V * self.dt * np.sin(new_psi) / (earth_radius * np.cos(self.state[2]))
+        dphi = horizontal_V * self.dt * np.cos(new_psi) / earth_radius
         
-        dr = vertical_speed * self.dt
+        dr = vertical_V * self.dt
         
         new_state = np.array([
-            new_speed,
+            new_V,
             self.state[1] + dlambda,
             self.state[2] + dphi,
             self.state[3] + dr,
-            new_heading,
-            new_trajectory
+            new_psi,
+            new_theta
         ])
         
         self.state = new_state
