@@ -4,63 +4,52 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+RAW_DATADIR = './data/raw_data'
+PROCESSED_DIR = './data/processed_data'
 
-# data = pd.read_csv('./data/typical_data.csv')
-
-data = pd.read_csv('./data/standard_data.csv')
-print(data.head())
-print(data.info())
-
-# 处理重复值
-print("原始数据行数:", len(data))
-data = data.drop_duplicates(subset=['t'])
-print("删除重复值后的行数:", len(data))
-
-
-X = []
-y = []
-
-for i in range(len(data)-1):
-
-    # X.append([
-    #     data.iloc[i]['V速度'],
-    #     data.iloc[i]['lambda经度'], 
-    #     data.iloc[i]['phi纬度'],
-    #     data.iloc[i]['r地心距'],
-    #     data.iloc[i]['psi航向角'],
-    #     data.iloc[i]['theta弹道倾角']
-    # ])
+for i in range(1, 6):
+    input_file = os.path.join(RAW_DATADIR, f'output{i}-ode1.csv')
+    output_X = os.path.join(PROCESSED_DIR, f'output{i}-ode1_X.npy')
+    output_y = os.path.join(PROCESSED_DIR, f'output{i}-ode1_y.npy')
     
-    # y.append([
-    #     data.iloc[i+1]['lambda经度'],
-    #     data.iloc[i+1]['phi纬度'], 
-    #     data.iloc[i+1]['r地心距']
-    # ])
-    
-    X.append([
-        data.iloc[i]['v'],
-        data.iloc[i]['lambda'],
-        data.iloc[i]['phi'], 
-        data.iloc[i]['r'],
-        data.iloc[i]['psi'],
-        data.iloc[i]['theta']
-    ])
-    
-    y.append([
-        data.iloc[i+1]['lambda'],
-        data.iloc[i+1]['phi'], 
-        data.iloc[i+1]['r']
-    ])
+    data = pd.read_csv(input_file)
+    print(f"\n处理文件: {input_file}")
+    # print(data.head())
+    # print(data.info())
 
-# 前901条数据作为样本（t），后901条数据作为标签（t+1），共901条训练样本
-X = np.array(X)
-y = np.array(y)
-print("X.shape:", X.shape)
-print("y.shape:", y.shape)
 
-np.save('./data/processed_X_standard.npy', X)
-np.save('./data/processed_y_standard.npy', y)
+    print("原始数据行数:", len(data))
+    data = data.drop_duplicates(subset=['t'])
+    print("删除t重复值后的行数:", len(data))
 
-print(f"共{len(X)}个训练样本")
+    X = []
+    y = []
+
+    for j in range(len(data)-1):
+        X.append([
+            data.iloc[j]['v'],
+            data.iloc[j]['lambda'],
+            data.iloc[j]['phi'], 
+            data.iloc[j]['r'],
+            data.iloc[j]['psi'],
+            data.iloc[j]['theta']
+        ])
+        
+        y.append([
+            data.iloc[j+1]['lambda'],
+            data.iloc[j+1]['phi'], 
+            data.iloc[j+1]['r']
+        ])
+
+    X = np.array(X)
+    y = np.array(y)
+    print("X.shape:", X.shape)
+    print("y.shape:", y.shape)
+
+
+    np.save(output_X, X)
+    np.save(output_y, y)
+    print(f"已保存处理后的数据到: {output_X} 和 {output_y}")
+    print(f"共{len(X)}个训练样本")
 
 

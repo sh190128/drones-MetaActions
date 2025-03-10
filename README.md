@@ -7,14 +7,35 @@
 
 项目包含两类主要的飞行数据:
 
-- standard_data.csv: 标准飞行数据,包含时间、速度、经纬度、高度等基本参数
-- typical_data.csv: 典型飞行轨迹数据,包含更多飞行状态参数
+- standard_data.csv: 标准飞行数据,包含时间、速度、经纬度、高度等基本参数，轨迹较长
+- typical_data.csv: 典型飞行轨迹数据模板, 轨迹较短
 
 ## 项目结构
 
 ```bash
-drone_ppo/
-├── data/ # 数据文件夹
-├── models/ # 模型文件夹
-├── visualize/ # 可视化文件夹
-└── README.md # 项目说明
+drones-MetaActions/
+├── data/
+│   ├── raw_data/ # 原始csv飞行轨迹数据
+│   └── processed_data/ # 处理后的训练数据, npy形式存储
+│
+├── ckpt/
+│
+├── visualize/
+│   ├── training_plots/
+│   └── testing_plots/
+│
+├── train_multiple.py # 多条轨迹训练
+├── train_single.py # 单条轨迹训练
+├── traces_plot.py  # 绘制多条 3D 轨迹
+├── evaluate.py # 评估模型，绘制预测轨迹
+├── drone_env.py
+├── preprocess.py
+├── utils.py
+├── requirements.txt
+└── README.md
+```
+
+## 环境安装
+```bash
+pip install -r requirements.txt
+```

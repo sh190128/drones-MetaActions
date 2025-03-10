@@ -2,10 +2,18 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-data/*
-!data/.gitkeep
+data/processed_data/*
+!data/processed_data/.gitkeep
+data/raw_data/*
+!data/raw_data/.gitkeep
+
 drone_ppo_tensorboard/*
-models/*
-!models/.gitkeep
-visualize/*
-!visualize/.gitkeep
+
+ckpt/*
+!ckpt/.gitkeep
+
+visualize/training_plots/*
+!visualize/training_plots/.gitkeep
+visualize/testing_plots/*
+!visualize/testing_plots/.gitkeep
+visualize/multiple_trajectories.png

@@ -8,11 +8,8 @@ matplotlib.use('Agg')
 
 np.random.seed(42)
 
-X = np.load('./data/processed_X_standard.npy')
-y = np.load('./data/processed_y_standard.npy')
-train_size = int(0.8 * len(X))
-X_test = X[train_size:]
-y_test = y[train_size:]
+X_test = np.load('./data/processed_data/processed_X_standard.npy')
+y_test = np.load('./data/processed_data/processed_y_standard.npy')
 # X_test = np.load('./data/processed_X_short.npy')
 # y_test = np.load('./data/processed_y_short.npy')
 
@@ -21,19 +18,19 @@ print(X_test.shape)
 print(y_test.shape)
 
 
-model = PPO.load("./models/drone_ppo_model")
+model = PPO.load("./models/drone_ppo_model_trace5")
 
 
 test_env = DroneEnv(X_test, y_test, dt=1, test=True)
 
-def evaluate_model(model, env, num_episodes=None):
-    if num_episodes is None:
-        num_episodes = len(env.X)
+def evaluate_model(model, env, num_steps=None):
+    if num_steps is None:
+        num_steps = len(env.X)
     
     predictions = []
     targets = []
     
-    for step in range(num_episodes):
+    for step in range(num_steps):
         # 设置当前step
         env.current_episode = step
         obs = env.reset()
@@ -56,7 +53,7 @@ def plot_trajectories(predictions, targets):
 
     plt.figure(figsize=(15, 18))
     
-    # 经度随时间变化
+    # 经度
     plt.subplot(3, 1, 1)
     plt.plot(predictions[:, 0], 'b-', label='Predicted')
     plt.plot(targets[:, 0], 'r--', label='Target')
@@ -65,7 +62,7 @@ def plot_trajectories(predictions, targets):
     plt.ylabel('Longitude')
     plt.legend()
     
-    # 纬度随时间变化
+    # 纬度
     plt.subplot(3, 1, 2)
     plt.plot(predictions[:, 1], 'b-', label='Predicted')
     plt.plot(targets[:, 1], 'r--', label='Target')
@@ -74,7 +71,7 @@ def plot_trajectories(predictions, targets):
     plt.ylabel('Latitude')
     plt.legend()
     
-    # 地心距随时间变化
+    # 地心距
     plt.subplot(3, 1, 3)
     plt.plot(predictions[:, 2], 'b-', label='Predicted')
     plt.plot(targets[:, 2], 'r--', label='Target')
@@ -84,7 +81,7 @@ def plot_trajectories(predictions, targets):
     plt.legend()
     
     plt.tight_layout()
-    plt.savefig('./visualize/prediction_results_standard.png')
+    plt.savefig('./visualize/prediction_results_trace5.png')
     
     # 3D轨迹图
     fig = plt.figure(figsize=(12, 10))
@@ -98,7 +95,7 @@ def plot_trajectories(predictions, targets):
     ax.legend()
     
     plt.tight_layout()
-    plt.savefig('./visualize/trajectory_3d_comparison_standard.png')
+    plt.savefig('./visualize/trajectory_3d_comparison_trace5.png')
     plt.show()
     
 
