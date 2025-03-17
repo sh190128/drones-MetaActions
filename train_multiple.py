@@ -7,6 +7,8 @@ from drone_env import DroneEnv
 import matplotlib
 from datetime import datetime
 from utils import plot_training_curves
+import json
+import os
 
 matplotlib.use('Agg')
 np.random.seed(42)
@@ -75,6 +77,7 @@ class TrainingCallback(BaseCallback):
         
         return True
 
+callback = TrainingCallback()
 
 X_train = np.load('./data/processed_data/output1-ode1_X.npy')
 y_train = np.load('./data/processed_data/output1-ode1_y.npy')
@@ -83,20 +86,32 @@ env = DummyVecEnv([lambda: DroneEnv(X_train, y_train, dt=1)])
 
 run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
 
-# 用轨迹1初始化env和model
-callback = TrainingCallback()
+
+try:
+    with open("optimization_results/best_parameters.json", "r") as f:
+        params = json.load(f)
+    print("Successfully loaded best training parameters:", params)
+except FileNotFoundError: 
+    print("WARNING: Best parameters file not found, using default training parameters")
+    params = {
+        "learning_rate": 0.0003,
+        "n_steps": 2048,
+        "batch_size": 64,
+        "n_epochs": 10,
+        "gamma": 0.99,
+        "gae_lambda": 0.95,
+        "clip_range": 0.5,
+        "ent_coef": 0.01,
+        "vf_coef": 0.5
+    }
+
+
 model = PPO(
     "MlpPolicy",
     env,
     verbose=1,
-    learning_rate=0.0003,
-    n_steps=2048,
-    batch_size=64,
-    n_epochs=10,
-    gamma=0.99,
-    gae_lambda=0.95,
-    clip_range=0.2,
-    tensorboard_log=f"./drone_ppo_tensorboard/{run_id}"
+    tensorboard_log=f"./drone_ppo_tensorboard/{run_id}",
+    **params
 )
 
 
@@ -106,7 +121,7 @@ model = PPO(
     / ****************************************** /
 '''
 
-for i in range(1, 6):
+for i in range(1, 9):
 
     X_train = np.load(f'./data/processed_data/output{i}-ode1_X.npy')
     y_train = np.load(f'./data/processed_data/output{i}-ode1_y.npy')
@@ -119,11 +134,13 @@ for i in range(1, 6):
     callback.reset_stats()
     
     model.learn(
-        total_timesteps=1000000, 
+        total_timesteps=100000, 
         callback=callback, 
         reset_num_timesteps=False,  # 继续训练，累计步数
     )
     
-    model.save(f"./ckpt/drone_ppo_model_trace{i}")
+    # model.save(f"./ckpt/drone_ppo_model_trace{i}")
     
     plot_training_curves(callback, './visualize/training_plots', trace_num=i) 
+
+model.save(f"./ckpt/model_ppo_trace{i}")

@@ -17,3 +17,6 @@ visualize/training_plots/*
 visualize/testing_plots/*
 !visualize/testing_plots/.gitkeep
 visualize/multiple_trajectories.png
+
+optimization_results/*
+*.db

@@ -18,7 +18,7 @@ print(X_test.shape)
 print(y_test.shape)
 
 
-model = PPO.load("./models/drone_ppo_model_trace5")
+model = PPO.load("./ckpt/model_ppo_trace8")
 
 
 test_env = DroneEnv(X_test, y_test, dt=1, test=True)
@@ -81,7 +81,7 @@ def plot_trajectories(predictions, targets):
     plt.legend()
     
     plt.tight_layout()
-    plt.savefig('./visualize/prediction_results_trace5.png')
+    plt.savefig('./visualize/testing_plots/prediction_results.png')
     
     # 3D轨迹图
     fig = plt.figure(figsize=(12, 10))
@@ -95,7 +95,7 @@ def plot_trajectories(predictions, targets):
     ax.legend()
     
     plt.tight_layout()
-    plt.savefig('./visualize/trajectory_3d_comparison_trace5.png')
+    plt.savefig('./visualize/testing_plots/trajectory_3d_comparison.png')
     plt.show()
     
 

@@ -7,10 +7,16 @@ import seaborn as sns
 RAW_DATADIR = './data/raw_data'
 PROCESSED_DIR = './data/processed_data'
 
-for i in range(1, 6):
-    input_file = os.path.join(RAW_DATADIR, f'output{i}-ode1.csv')
-    output_X = os.path.join(PROCESSED_DIR, f'output{i}-ode1_X.npy')
-    output_y = os.path.join(PROCESSED_DIR, f'output{i}-ode1_y.npy')
+# 获取所有符合模式的CSV文件
+csv_files = [f for f in os.listdir(RAW_DATADIR) if f.startswith('output') and f.endswith('-ode1.csv')]
+
+for input_file_name in csv_files:
+    # 构建完整的输入输出路径
+    input_file = os.path.join(RAW_DATADIR, input_file_name)
+    # 从文件名中提取序号，用于构建输出文件名
+    base_name = os.path.splitext(input_file_name)[0]
+    output_X = os.path.join(PROCESSED_DIR, f'{base_name}_X.npy')
+    output_y = os.path.join(PROCESSED_DIR, f'{base_name}_y.npy')
     
     data = pd.read_csv(input_file)
     print(f"\n处理文件: {input_file}")
