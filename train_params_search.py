@@ -140,7 +140,6 @@ def plot_training_curves(callback, save_dir, trial_number):
     plt.close()
 
 def objective(trial):
-    # 定义参数搜索空间
     params = {
         "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True),
         "n_steps": trial.suggest_int("n_steps", 1024, 4096, step=1024),
@@ -155,7 +154,6 @@ def objective(trial):
     
     env = create_env()
     
-    # 创建回调
     callback = ParameterSearchCallback()
     
     try:
@@ -167,13 +165,11 @@ def objective(trial):
             **params
         )
         
-        # 训练模型
         model.learn(
             total_timesteps=100000,
             callback=callback
         )
         
-        # 绘制训练曲线
         plot_training_curves(callback, 
                            save_dir='./optimization_results/training_curves',
                            trial_number=trial.number)
@@ -181,7 +177,6 @@ def objective(trial):
         # 使用最后10次评估的平均奖励作为优化目标
         mean_reward = np.mean(callback.rewards[-10:])
         
-        # 保存本次试验的参数和结果
         trial_results = {
             'params': params,
             'mean_reward': mean_reward,
@@ -192,7 +187,6 @@ def objective(trial):
             }
         }
         
-        # 保存试验结果
         os.makedirs('./optimization_results/trial_results', exist_ok=True)
         np.save(f'./optimization_results/trial_results/trial_{trial.number}.npy', 
                 trial_results)
@@ -204,7 +198,6 @@ def objective(trial):
         return float('-inf')
 
 def main():
-    # 创建study对象
     study = optuna.create_study(
         study_name="drone_ppo_optimization",
         direction="maximize",
@@ -212,23 +205,19 @@ def main():
         load_if_exists=True
     )
     
-    # 运行优化
-    n_trials = 10  # 可以根据需要调整试验次数
+    n_trials = 10 
     study.optimize(objective, n_trials=n_trials)
     
-    # 打印最佳参数
     print("Best parameters:", study.best_params)
     print("Best value:", study.best_value)
     
-    # 保存优化结果
     results_dir = "./optimization_results"
     os.makedirs(results_dir, exist_ok=True)
     
-    # 保存最佳参数和最佳值
     with open(f"{results_dir}/best_parameters.json", "w") as f:
         json.dump(study.best_params, f, indent=4)
     
-    # 保存参数重要性分析
+    # 参数重要性分析
     try:
         importance = optuna.importance.get_param_importances(study)
         with open(f"{results_dir}/parameter_importance.txt", "w") as f:
@@ -237,14 +226,13 @@ def main():
     except:
         print("无法计算参数重要性")
     
-    # 使用最佳参数训练最终模型
+
     print("使用最佳参数训练最终模型...")
     env = create_env()
     final_model = PPO("MlpPolicy", env, verbose=1, **study.best_params)
     final_model.learn(total_timesteps=200000)  # 增加训练步数
     final_model.save(f"{results_dir}/best_model")
 
-    # 在完成所有试验后，绘制参数重要性图
     if study.trials_dataframe is not None:
         plt.figure(figsize=(10, 6))
         importance_df = pd.DataFrame(
