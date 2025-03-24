@@ -17,6 +17,11 @@ class DroneEnv(gym.Env):
         self.current_step = 0
         self.current_episode = 0
         
+        # 记录起始点
+        self.longitude_start = self.X[0][1]
+        self.latitude_start = self.X[0][2]
+        self.r_start = self.X[0][3]
+        
         # Action Space：速度、航向角和弹道倾角
         # 每个动作维度的范围为[-1, 1]，将在step中映射到实际调整量
         self.action_space = spaces.Box(
@@ -39,10 +44,6 @@ class DroneEnv(gym.Env):
         self.state = self.X[self.current_episode].copy()
         self.target = self.y[self.current_episode].copy()
         
-        # 记录起始点
-        self.longitude_start = self.state[1]
-        self.latitude_start = self.state[2]
-        self.r_start = self.state[3]
     
         # 转换为相对坐标系
         self.state[1] -= self.longitude_start  # 经度相对值
@@ -117,8 +118,5 @@ class DroneEnv(gym.Env):
             'total_error': total_error,
             'reward': reward
         }
-        if not self.test:
-            return self.state, reward, done, info
-        else:
-            # 测试时，返回绝对位置
-            return self.state[1:4] + np.array([self.longitude_start, self.latitude_start, self.r_start]), reward, done, info
+        
+        return self.state, reward, done, info

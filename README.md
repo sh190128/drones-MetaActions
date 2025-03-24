@@ -49,7 +49,7 @@ python preprocess.py
 python train_params_search.py
 
 # 使用最优参数进行多轨迹训练
-python multiple.py
+python train_multiple.py
 
 # 模型评估
 python evaluate.py

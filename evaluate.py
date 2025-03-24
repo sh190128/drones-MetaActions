@@ -4,46 +4,52 @@ from stable_baselines3 import PPO
 from drone_env import DroneEnv
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import matplotlib
+import argparse
 matplotlib.use('Agg')
 
 np.random.seed(42)
 
-X_test = np.load('./data/processed_data/processed_X_standard.npy')
-y_test = np.load('./data/processed_data/processed_y_standard.npy')
-# X_test = np.load('./data/processed_X_short.npy')
-# y_test = np.load('./data/processed_y_short.npy')
+def evaluate_model(model, env, simulate=False, num_steps=None):
 
-
-print(X_test.shape)
-print(y_test.shape)
-
-
-model = PPO.load("./ckpt/model_ppo_trace8")
-
-
-test_env = DroneEnv(X_test, y_test, dt=1, test=True)
-
-def evaluate_model(model, env, num_steps=None):
     if num_steps is None:
         num_steps = len(env.X)
-    
+    assert len(env.X) == len(env.y)
+
     predictions = []
     targets = []
     
-    for step in range(num_steps):
-        # 设置当前step
-        env.current_episode = step
-        obs = env.reset()
-        target = env.target
+    if simulate:
+        for step in range(num_steps):
+            env.current_episode = step
+            
+            if step < 5:
+                # 前n步，obs从env中获取（测试集已有数据）
+                obs = env.reset()
+                action, _ = model.predict(obs, deterministic=True)
+                next_obs, _, _, _ = env.step(action)
+            else:
+                # obs由计算迭代更新
+                env.reset()
+                env.state = next_obs
+                obs = next_obs
+                action, _ = model.predict(obs, deterministic=True)
+                next_obs, _, _, _ = env.step(action)
+                
+            target = env.target
+            predictions.append(next_obs[1:4]+np.array([env.longitude_start, env.latitude_start, env.r_start]))
+            targets.append(target)
 
-        # 采样一步，预测动作，计算next_obs
-        action, _ = model.predict(obs, deterministic=True)
-        next_obs, _, _, _ = env.step(action)
-        
-        
-        predicted = next_obs
-        predictions.append(predicted)
-        targets.append(target)
+    else:
+        for step in range(num_steps):
+            env.current_episode = step
+            obs = env.reset()
+            target = env.target
+            
+            action, _ = model.predict(obs, deterministic=True)
+            next_obs, _, _, _ = env.step(action)
+            
+            predictions.append(next_obs[1:4]+np.array([env.longitude_start, env.latitude_start, env.r_start]))
+            targets.append(target)
     
     return np.array(predictions), np.array(targets)
 
@@ -98,6 +104,19 @@ def plot_trajectories(predictions, targets):
     plt.show()
     
 
-predictions, targets = evaluate_model(model, test_env)
+if __name__ == "__main__":
 
-plot_trajectories(predictions, targets)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--simulate', action='store_true', help='whether to simulate the complete trace')
+    args = parser.parse_args()
+
+    X_test = np.load('./data/processed_data/output8-ode1_X.npy')
+    y_test = np.load('./data/processed_data/output8-ode1_y.npy')
+    # X_test = np.load('./data/processed_data/processed_X_standard.npy')
+    # y_test = np.load('./data/processed_data/processed_y_standard.npy')
+    test_env = DroneEnv(X_test, y_test, dt=1, test=True)
+    model = PPO.load("./ckpt/model_ppo_trace8")
+
+    predictions, targets = evaluate_model(model, test_env, simulate=args.simulate)
+
+    plot_trajectories(predictions, targets)
