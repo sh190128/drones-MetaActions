@@ -41,8 +41,7 @@ def evaluate_model(model, env, num_steps=None):
         next_obs, _, _, _ = env.step(action)
         
         
-        predicted = next_obs[1:4]
-        
+        predicted = next_obs
         predictions.append(predicted)
         targets.append(target)
     

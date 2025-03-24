@@ -34,32 +34,37 @@ class DroneEnv(gym.Env):
         self.target = None
     
     def reset(self):
-        
-        # TODO:调整采样点策略
-        # 随机选择轨迹中的一个时间点作为起始点，训练之后100个时间步的轨迹
         if not self.test:
             self.current_episode = np.random.randint(0, self.trajectory_length - self.max_steps)
         self.state = self.X[self.current_episode].copy()
         self.target = self.y[self.current_episode].copy()
+        
+        # 记录起始点
+        self.longitude_start = self.state[1]
+        self.latitude_start = self.state[2]
+        self.r_start = self.state[3]
+    
+        # 转换为相对坐标系
+        self.state[1] -= self.longitude_start  # 经度相对值
+        self.state[2] -= self.latitude_start   # 纬度相对值
+        self.state[3] -= self.r_start          # 地心距相对值
+    
         self.current_step = 0
         return self.state
     
     def step(self, action):
-        
         self.target = self.y[self.current_episode + self.current_step]
-        # self.state  = self.X[self.current_step]
-        target_position = self.target
-        
-        
+    
+        # 动作调整
         V_change = action[0] * 100  # 速度调整范围 ±100
         psi_change = action[1] * 0.1  # 航向角调整范围 ±0.1 弧度
         theta_change = action[2] * 0.1  # 弹道倾角调整范围 ±0.1 弧度
-        
-        
+
+
         # 更新速度
         new_V = self.state[0] + V_change
         new_V = max(0, min(new_V, 10000))
-        
+    
         # 更新航向角和弹道倾角
         new_psi = self.state[4] + psi_change
         new_theta = self.state[5] + theta_change
@@ -71,40 +76,40 @@ class DroneEnv(gym.Env):
         # 计算新的经纬度，地心距
         horizontal_V = new_V * np.cos(new_theta)
         vertical_V = new_V * np.sin(new_theta)
-        
-        earth_radius = self.state[3]
-        dlambda = horizontal_V * self.dt * np.sin(new_psi) / (earth_radius * np.cos(self.state[2]))
+    
+        earth_radius = self.state[3] + self.r_start  # 恢复绝对地心距
+        dlambda = horizontal_V * self.dt * np.sin(new_psi) / (earth_radius * np.cos(self.state[2] + self.latitude_start))
         dphi = horizontal_V * self.dt * np.cos(new_psi) / earth_radius
-        
         dr = vertical_V * self.dt
-        
+    
+        # 更新状态
         new_state = np.array([
             new_V,
-            self.state[1] + dlambda,
-            self.state[2] + dphi,
-            self.state[3] + dr,
+            self.state[1] + dlambda,  # 经度相对值
+            self.state[2] + dphi,      # 纬度相对值
+            self.state[3] + dr,        # 地心距相对值
             new_psi,
             new_theta
         ])
-        
+    
         self.state = new_state
-        
+    
         # 计算位置误差
-        predicted_position = new_state[1:4]  # 经度、纬度、地心距
-        
+        predicted_position = new_state[1:4]  # 经度、纬度、地心距（相对值）
+        target_position = self.target[0:3] - np.array([self.longitude_start, self.latitude_start, self.r_start])  # 目标位置（相对值）
+    
         lambda_error = abs(predicted_position[0] - target_position[0]) / max(abs(target_position[0]), 1e-6)
         phi_error = abs(predicted_position[1] - target_position[1]) / max(abs(target_position[1]), 1e-6)
         r_error = abs(predicted_position[2] - target_position[2]) / max(abs(target_position[2]), 1e-6)
-        
+    
         total_error = lambda_error + phi_error + r_error
-        
-        # TODO: 调整奖励函数
-        # 负的总误差作为奖励
+    
+        # 奖励函数
         reward = -total_error
-        
+    
         self.current_step += 1
         done = self.current_step >= self.max_steps
-        
+    
         info = {
             'lambda_error': lambda_error,
             'phi_error': phi_error,
@@ -112,7 +117,8 @@ class DroneEnv(gym.Env):
             'total_error': total_error,
             'reward': reward
         }
-        
-        
-        
-        return self.state, reward, done, info 
+        if not self.test:
+            return self.state, reward, done, info
+        else:
+            # 测试时，返回绝对位置
+            return self.state[1:4] + np.array([self.longitude_start, self.latitude_start, self.r_start]), reward, done, info
