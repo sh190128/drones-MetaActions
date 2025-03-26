@@ -9,6 +9,8 @@ from datetime import datetime
 from utils import plot_training_curves
 import json
 import os
+import argparse
+import torch
 
 matplotlib.use('Agg')
 np.random.seed(42)
@@ -79,10 +81,6 @@ class TrainingCallback(BaseCallback):
 
 callback = TrainingCallback()
 
-X_train = np.load('./data/processed_data/output1-ode1_X.npy')
-y_train = np.load('./data/processed_data/output1-ode1_y.npy')
-env = DummyVecEnv([lambda: DroneEnv(X_train, y_train, dt=1)])
-
 
 run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -106,41 +104,75 @@ except FileNotFoundError:
     }
 
 
-model = PPO(
+def train(cuda_id=0, model_save_path=None):
+    """
+    训练函数
+    Args:
+        cuda_id (int): GPU设备编号
+        model_save_path (str): 模型保存路径
+    """
+    
+    X_train = np.load('./data/processed_data/output1-ode1_X.npy')
+    y_train = np.load('./data/processed_data/output1-ode1_y.npy')
+    env = DummyVecEnv([lambda: DroneEnv(X_train, y_train, dt=1)])
+    
+    if model_save_path is None:
+        model_save_path = run_id
+        
+    # 设置CUDA设备
+    device = f"cuda:{cuda_id}" if torch.cuda.is_available() else "cpu"
+    torch.cuda.set_device(cuda_id)
+    print(f"\n{'='*50}")
+    print(f"使用设备: {device}")
+    if torch.cuda.is_available():
+        print(f"GPU名称: {torch.cuda.get_device_name(cuda_id)}")
+        # print(f"当前GPU编号: {torch.cuda.current_device()}")
+    print(f"{'='*50}\n")
+    
+    model = PPO(
     "MlpPolicy",
     env,
     verbose=1,
     tensorboard_log=f"./drone_ppo_tensorboard/{run_id}",
+    device=device,
     **params
 )
-
-
-'''
-    / ****************************************** /
-    / **************** training **************** /
-    / ****************************************** /
-'''
-
-for i in range(1, 9):
-
-    X_train = np.load(f'./data/processed_data/output{i}-ode1_X.npy')
-    y_train = np.load(f'./data/processed_data/output{i}-ode1_y.npy')
-    print(f"\nTraining on dataset {i}, train set size:", X_train.shape[0])
     
-    env = DummyVecEnv([lambda: DroneEnv(X_train, y_train, dt=1)])
-    model.set_env(env)
-    
-    # 重置callback的统计数据, 但model参数继续训练
-    callback.reset_stats()
-    
-    model.learn(
-        total_timesteps=100000, 
-        callback=callback, 
-        reset_num_timesteps=False,  # 继续训练，累计步数
-    )
-    
-    # model.save(f"./ckpt/drone_ppo_model_trace{i}")
-    
-    plot_training_curves(callback, './visualize/training_plots', trace_num=i) 
+    for i in range(1, 9):
+        X_train = np.load(f'./data/processed_data/output{i}-ode1_X.npy')
+        y_train = np.load(f'./data/processed_data/output{i}-ode1_y.npy')
+        print(f"\n训练数据集 {i}, 训练集大小:", X_train.shape[0])
+        
+        env = DummyVecEnv([lambda: DroneEnv(X_train, y_train, dt=1)])
+        model.set_env(env)
+        
+        # 确保环境中的张量也在正确的设备上
+        if hasattr(env.envs[0], 'to'):
+            env.envs[0].to(device)
+        
+        callback.reset_stats()
+        
+        model.learn(
+            total_timesteps=100000, 
+            callback=callback, 
+            reset_num_timesteps=False,
+        )
+        
+        # 保存模型到指定路径
+        save_path = os.path.join("./ckpt", model_save_path)
+        os.makedirs(save_path, exist_ok=True)
+        model.save(os.path.join(save_path, f"model_ppo_trace{i}"))
+        
+        plot_training_curves(callback, './visualize/training_plots', trace_num=i)
 
-model.save(f"./ckpt/model_ppo_trace{i}")
+if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser(description='无人机轨迹跟踪PPO训练程序')
+    parser.add_argument('--cuda', type=int, default=0,
+                      help='GPU设备编号 (默认: 0)')
+    parser.add_argument('--model_save_path', type=str, default=None,
+                      help='模型保存路径 (默认: 使用时间戳)')
+    
+    args = parser.parse_args()
+    
+    train(cuda_id=args.cuda, model_save_path=args.model_save_path)
