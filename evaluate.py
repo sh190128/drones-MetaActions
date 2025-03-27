@@ -22,7 +22,7 @@ def evaluate_model(model, env, simulate=False, num_steps=None):
         for step in range(num_steps):
             env.current_episode = step
             
-            if step < 5:
+            if step < 200:
                 # 前n步，obs从env中获取（测试集已有数据）
                 obs = env.reset()
                 action, _ = model.predict(obs, deterministic=True)
@@ -108,14 +108,23 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--simulate', action='store_true', help='whether to simulate the complete trace')
+    parser.add_argument('--cuda', type=int, default=0, help='GPU设备编号 (默认: 0)')
     args = parser.parse_args()
+
+    # 设置CUDA设备
+    import torch
+    if torch.cuda.is_available():
+        torch.cuda.set_device(args.cuda)
+        print(f"使用 CUDA 设备 {args.cuda}")
+    else:
+        print("CUDA不可用，使用CPU")
 
     X_test = np.load('./data/processed_data/output8-ode1_X.npy')
     y_test = np.load('./data/processed_data/output8-ode1_y.npy')
     # X_test = np.load('./data/processed_data/processed_X_standard.npy')
     # y_test = np.load('./data/processed_data/processed_y_standard.npy')
     test_env = DroneEnv(X_test, y_test, dt=1, test=True)
-    model = PPO.load("./ckpt/model_ppo_trace8")
+    model = PPO.load("./ckpt/20250327-174802/model_ppo_trace8.zip")
 
     predictions, targets = evaluate_model(model, test_env, simulate=args.simulate)
 
