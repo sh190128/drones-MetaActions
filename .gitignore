@@ -12,11 +12,11 @@ drone_ppo_tensorboard/*
 ckpt/*
 !ckpt/.gitkeep
 
-visualize/training_plots/*
-!visualize/training_plots/.gitkeep
-visualize/testing_plots/*
-!visualize/testing_plots/.gitkeep
-visualize/multiple_trajectories.png
+
+visualize/*
+!visualize/.gitkeep
 
 optimization_results/*
 *.db
+
+faster/

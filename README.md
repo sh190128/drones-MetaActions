@@ -9,6 +9,14 @@
 - standard_data.csv: 标准飞行数据,包含时间、速度、经纬度、高度等基本参数，轨迹较长
 - typical_data.csv: 典型飞行轨迹数据模板, 轨迹较短
 
+## 项目特性
+
+- **历史观测窗口**: 模型使用前n_obs步的历史状态作为输入，提供更长的视野 (history horizon)
+- **终点约束**: 通过改进的奖励函数，鼓励靠近终点
+- **方向引导**: 使用余弦相似度计算轨迹方向与目标方向的一致性，引导无人机朝向终点
+- **多级奖励**: 根据与终点的距离设置多级奖励，鼓励无人机接近终点
+- **早停机制**: 当无人机非常接近终点时提前结束训练，优化训练效率
+
 ## 项目结构
 
 ```bash
@@ -49,8 +57,21 @@ python preprocess.py
 python train_params_search.py
 
 # 使用最优参数进行多轨迹训练
-python train_multiple.py
+python train_multiple.py --n_obs 5 --max_steps 100
 
 # 模型评估
-python evaluate.py
+# 逐步预测
+python evaluate.py  
+
+# 给定起始点，预测完整轨迹
+python evaluate.py --simulate
 ```
+
+## 参数说明
+
+- `--n_obs`: 历史观测窗口大小，默认为5
+- `--max_steps`: 每个episode的最大步数，默认为100
+
+## Todo:
+- 本质是Sparse Obs, Sparse Reward, Long Horizon问题，应对抵达终点添加更严格的约束
+- drone env 步进函数 step() 与真实仿真模型相差较大，存在较大误差

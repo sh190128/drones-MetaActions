@@ -9,7 +9,7 @@ matplotlib.use('Agg')
 
 np.random.seed(42)
 
-def evaluate_model(model, env, simulate=False, num_steps=None):
+def evaluate_model(model, env, simulate=False, num_steps=None, n_obs=5, start_obs = 400):
 
     if num_steps is None:
         num_steps = len(env.X)
@@ -19,24 +19,55 @@ def evaluate_model(model, env, simulate=False, num_steps=None):
     targets = []
     
     if simulate:
+        # 存储模拟轨迹的历史状态
+        history_states = []
+        
         for step in range(num_steps):
             env.current_episode = step
             
-            if step < 200:
-                # 前n步，obs从env中获取（测试集已有数据）
+            if step < start_obs:
+                # 前n_obs步，从环境中获取完整观测
                 obs = env.reset()
                 action, _ = model.predict(obs, deterministic=True)
                 next_obs, _, _, _ = env.step(action)
+                # 存储当前状态用于历史记录
+                current_state = env.state.copy()
+                history_states.append(current_state)
+                if len(history_states) > n_obs:
+                    history_states.pop(0)
+
             else:
-                # obs由计算迭代更新
+                # 使用历史状态构建观测
                 env.reset()
-                env.state = next_obs
-                obs = next_obs
+                # 设置当前状态为上一步计算的状态
+                env.state = current_state
+                # 设置历史状态
+                env.history_states = history_states.copy()
+                
+                # 获取观测
+                trajectory_end_relative = np.array([
+                    env.trajectory_end[0] - env.longitude_start,
+                    env.trajectory_end[1] - env.latitude_start,
+                    env.trajectory_end[2] - env.r_start
+                ])
+                steps_remaining_ratio = (env.max_steps - env.current_step) / env.max_steps
+                flat_history = np.concatenate(env.history_states)
+                obs = np.concatenate([flat_history, trajectory_end_relative, [steps_remaining_ratio]])
+                
+                # 预测动作并执行
                 action, _ = model.predict(obs, deterministic=True)
                 next_obs, _, _, _ = env.step(action)
                 
+                # 更新历史记录
+                current_state = env.state.copy()
+                history_states.append(current_state)
+                if len(history_states) > n_obs:
+                    history_states.pop(0)
+                
             target = env.target
-            predictions.append(next_obs[1:4]+np.array([env.longitude_start, env.latitude_start, env.r_start]))
+            # 转换为绝对坐标进行评估
+            position = env.state[1:4] + np.array([env.longitude_start, env.latitude_start, env.r_start])
+            predictions.append(position)
             targets.append(target)
 
     else:
@@ -48,7 +79,9 @@ def evaluate_model(model, env, simulate=False, num_steps=None):
             action, _ = model.predict(obs, deterministic=True)
             next_obs, _, _, _ = env.step(action)
             
-            predictions.append(next_obs[1:4]+np.array([env.longitude_start, env.latitude_start, env.r_start]))
+            # 转换为绝对坐标进行评估
+            position = env.state[1:4] + np.array([env.longitude_start, env.latitude_start, env.r_start])
+            predictions.append(position)
             targets.append(target)
     
     return np.array(predictions), np.array(targets)
@@ -124,8 +157,8 @@ if __name__ == "__main__":
     # X_test = np.load('./data/processed_data/processed_X_standard.npy')
     # y_test = np.load('./data/processed_data/processed_y_standard.npy')
     test_env = DroneEnv(X_test, y_test, dt=1, test=True)
-    model = PPO.load("./ckpt/20250327-174802/model_ppo_trace8.zip")
+    model = PPO.load("./ckpt/20250407-134007/model_ppo_trace8.zip")
 
-    predictions, targets = evaluate_model(model, test_env, simulate=args.simulate)
+    predictions, targets = evaluate_model(model, test_env, simulate=args.simulate, num_steps=X_test.shape[0])
 
     plot_trajectories(predictions, targets)
