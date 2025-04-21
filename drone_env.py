@@ -168,16 +168,10 @@ class DroneEnv(gym.Env):
         
         self.state = new_state
     
-        # 计算位置误差
+        # 准备位置数据计算奖励
         predicted_position = new_state[1:4]  # 经度、纬度、地心距（相对值）
         target_position = self.target[0:3] - np.array([self.longitude_start, self.latitude_start, self.r_start])  # 目标位置（相对值）
     
-        lambda_error = abs(predicted_position[0] - target_position[0]) / max(abs(target_position[0]), 1e-6)
-        phi_error = abs(predicted_position[1] - target_position[1]) / max(abs(target_position[1]), 1e-6)
-        r_error = abs(predicted_position[2] - target_position[2]) / max(abs(target_position[2]), 1e-6)
-    
-        next_state_error = lambda_error + phi_error + r_error
-        
         # 计算与轨迹终点的距离
         trajectory_end_relative = np.array([
             self.trajectory_end[0] - self.longitude_start,
@@ -185,12 +179,44 @@ class DroneEnv(gym.Env):
             self.trajectory_end[2] - self.r_start
         ])
         
-        # 计算与终点的欧式距离（归一化）
+        # 计算与终点的欧式距离
         euclidean_distance_to_end = np.sqrt(
             (predicted_position[0] - trajectory_end_relative[0])**2 + 
             (predicted_position[1] - trajectory_end_relative[1])**2 + 
             (predicted_position[2] - trajectory_end_relative[2])**2
         )
+        
+        # 计算奖励
+        reward, info = self._compute_reward(
+            predicted_position, 
+            target_position, 
+            trajectory_end_relative, 
+            euclidean_distance_to_end
+        )
+    
+        # 更新步数
+        self.current_step += 1
+        
+        # 达到最大步数或非常接近终点时结束
+        done = (self.current_step >= self.max_steps) or (euclidean_distance_to_end < 0.1)
+        
+        # 计算剩余步数与最大步数的比例
+        steps_remaining_ratio = (self.max_steps - self.current_step) / self.max_steps
+        
+        # 组合观测状态：历史状态 + 终点坐标 + 步数比例
+        flat_history = np.concatenate(self.history_states)
+        observation = np.concatenate([flat_history, trajectory_end_relative, [steps_remaining_ratio]])
+        
+        return observation, reward, done, info
+    
+    def _compute_reward(self, predicted_position, target_position, trajectory_end_relative, euclidean_distance_to_end):
+        
+        # 位置误差
+        lambda_error = abs(predicted_position[0] - target_position[0]) / max(abs(target_position[0]), 1e-6)
+        phi_error = abs(predicted_position[1] - target_position[1]) / max(abs(target_position[1]), 1e-6)
+        r_error = abs(predicted_position[2] - target_position[2]) / max(abs(target_position[2]), 1e-6)
+        
+        next_state_error = lambda_error + phi_error + r_error
         
         # 终点接近奖励
         # 距离越近，奖励越高（使用指数衰减函数）
@@ -235,21 +261,12 @@ class DroneEnv(gym.Env):
         # 更新步数
         self.current_step += 1
         
-        # 达到最大步数或非常接近终点时结束
-        done = (self.current_step >= self.max_steps) or (euclidean_distance_to_end < 0.1)
-        
         # 如果已达到最大步数但未接近终点，给予惩罚
-        if self.current_step >= self.max_steps and euclidean_distance_to_end > 0.3:
+        if self.current_step >= self.max_steps - 1 and euclidean_distance_to_end > 0.3:
             reward -= 10.0  # 未能到达终点的惩罚
-        
-        # 计算剩余步数与最大步数的比例
-        steps_remaining_ratio = (self.max_steps - self.current_step) / self.max_steps
-        
-        # 组合观测状态：历史状态 + 终点坐标 + 步数比例
-        flat_history = np.concatenate(self.history_states)
-        observation = np.concatenate([flat_history, trajectory_end_relative, [steps_remaining_ratio]])
-    
-        info = {
+            
+        # 返回奖励和信息字典
+        info_dict = {
             'lambda_error': lambda_error,
             'phi_error': phi_error,
             'r_error': r_error,
@@ -260,4 +277,4 @@ class DroneEnv(gym.Env):
             'reward': reward
         }
         
-        return observation, reward, done, info
+        return reward, info_dict

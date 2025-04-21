@@ -140,8 +140,10 @@ def plot_trajectories(predictions, targets):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--simulate', action='store_true', help='whether to simulate the complete trace')
+    parser.add_argument('--simulate', action='store_true', help='是否仿真预测完整轨迹')
     parser.add_argument('--cuda', type=int, default=0, help='GPU设备编号 (默认: 0)')
+    parser.add_argument('--n_obs', type=int, default=100, help='历史观测窗口大小')
+    parser.add_argument('--start_obs', type=int, default=400, help='仿真完整轨迹的起始步')
     args = parser.parse_args()
 
     # 设置CUDA设备
@@ -156,9 +158,11 @@ if __name__ == "__main__":
     y_test = np.load('./data/processed_data/output8-ode1_y.npy')
     # X_test = np.load('./data/processed_data/processed_X_standard.npy')
     # y_test = np.load('./data/processed_data/processed_y_standard.npy')
-    test_env = DroneEnv(X_test, y_test, dt=1, test=True)
-    model = PPO.load("./ckpt/20250407-134007/model_ppo_trace8.zip")
+    test_env = DroneEnv(X_test, y_test, dt=1, test=True, n_obs=args.n_obs)
+    model = PPO.load("./ckpt/20250421-075929/model_ppo_trace8.zip")
 
-    predictions, targets = evaluate_model(model, test_env, simulate=args.simulate, num_steps=X_test.shape[0])
+    predictions, targets = evaluate_model(model, test_env, simulate=args.simulate, 
+                                          num_steps=X_test.shape[0], n_obs=args.n_obs,
+                                          start_obs=args.start_obs)
 
     plot_trajectories(predictions, targets)
