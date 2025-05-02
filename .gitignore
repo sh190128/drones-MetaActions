@@ -20,3 +20,5 @@ optimization_results/*
 *.db
 
 faster/
+
+missile.py

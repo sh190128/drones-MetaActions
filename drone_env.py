@@ -1,6 +1,29 @@
 import gym 
 import numpy as np
 from gym import spaces
+from missile import Missile
+
+
+# 全局变量
+omega_e = 7.292e-5 # 地球自转角速度，rad/s
+r_e = 6371393 # 地球平均半径，m
+g0 = 9.8 # 海平面重力加速度，m/s^2
+
+params = {'m': 907,
+          's': 0.4097,
+          'missile_step': 1,
+          'CL': np.array([
+    [0.450, 0.425, 0.400, 0.380, 0.370, 0.360, 0.350],
+    [0.740, 0.700, 0.670, 0.630, 0.600, 0.570, 0.557],
+    [1.050, 1.000, 0.950, 0.900, 0.850, 0.800, 0.780]
+]),
+          'CD': np.array([
+    [0.450, 0.425, 0.400, 0.380, 0.370, 0.360, 0.350],
+    [0.740, 0.700, 0.670, 0.630, 0.600, 0.570, 0.557],
+    [1.050, 1.000, 0.950, 0.900, 0.850, 0.800, 0.780]
+]),
+          'k': np.array([1, 1, 1])}
+
 
 class DroneEnv(gym.Env):
     def __init__(self, X, y, dt, max_steps=100, test=False, n_obs=5):
@@ -18,7 +41,6 @@ class DroneEnv(gym.Env):
         self.current_step = 0
         self.current_episode = 0
         
-        # 记录起始点
         self.longitude_start = self.X[0][1]
         self.latitude_start = self.X[0][2]
         self.r_start = self.X[0][3]
@@ -28,11 +50,6 @@ class DroneEnv(gym.Env):
         self.action_space = spaces.Box(
             low=-1, high=1, shape=(3,), dtype=np.float32
         )
-        
-        
-        single_state_dim = 6
-        # 每个状态包含6个变量：速度、经度、纬度、地心距、航向角、弹道倾角
-        single_state_dim = 6
         
         # 为历史状态创建边界数组
         # 每个状态的边界：[速度, 经度, 纬度, 地心距, 航向角, 弹道倾角]
@@ -51,11 +68,9 @@ class DroneEnv(gym.Env):
         steps_low = np.array([0.0])  # 剩余步数比例最小为0
         steps_high = np.array([1.0])  # 剩余步数比例最大为1
         
-        # 组合所有边界
         obs_low = np.concatenate([history_low, endpoint_low, steps_low])
         obs_high = np.concatenate([history_high, endpoint_high, steps_high])
-        
-        # 定义observation space
+
         self.observation_space = spaces.Box(
             low=obs_low,
             high=obs_high,
@@ -66,17 +81,16 @@ class DroneEnv(gym.Env):
         self.target = None
         self.trajectory_end = None  # 添加终点信息
         
-        # 存储历史观测状态
+        # 存储n_obs步的历史观测状态
         self.history_states = []
-    
+
     def reset(self):
         if not self.test:
-            self.current_episode = np.random.randint(0, self.trajectory_length - self.max_steps)
+            # self.current_episode = np.random.randint(0, self.trajectory_length - self.max_steps)
+            self.current_episode = np.random.randint(347, self.trajectory_length - self.max_steps)
         self.state = self.X[self.current_episode].copy()
         self.target = self.y[self.current_episode].copy()
         
-        # 保存轨迹终点信息
-        self.trajectory_end = self.y[-1][0:3].copy()
         # 保存轨迹终点信息
         self.trajectory_end = self.y[-1][0:3].copy()
     
@@ -128,8 +142,7 @@ class DroneEnv(gym.Env):
         V_change = action[0] * 100  # 速度调整范围 ±100
         psi_change = action[1] * 0.1  # 航向角调整范围 ±0.1 弧度
         theta_change = action[2] * 0.1  # 弹道倾角调整范围 ±0.1 弧度
-
-
+        
         # 更新速度
         new_V = self.state[0] + V_change
         new_V = max(0, min(new_V, 10000))
@@ -140,26 +153,40 @@ class DroneEnv(gym.Env):
         
         
         '''
-            FIXME: 位置计算当前为简化模型，仅按照地球为规则球形计算。更改计算公式
+            由于计算要求，传入missile类的位置信息必须为地球坐标系，不能转为相对坐标系
         '''
-        # 计算新的经纬度，地心距
-        horizontal_V = new_V * np.cos(new_theta)
-        vertical_V = new_V * np.sin(new_theta)
+        
+        missile_pre_state = self.X[self.current_episode].copy()
+        missile_pre_state = missile_pre_state[[0,5,4,1,2,3]]
+        missile_desired_state = np.array([new_V, new_theta, new_psi])
+        missile = Missile(pre_state=missile_pre_state, desired_state=missile_desired_state, params=params)
+        
+        
+        new_state = missile.calculate_state()
+        # 调整状态向量的顺序：[v, theta, psi, lambda, phi, r] -> [v, lambda, phi, r, psi, theta]
+        new_state = new_state[[0, 3, 4, 5, 2, 1]]
+        
+        # '''
+        #     FIXME: 位置计算当前为简化模型，仅按照地球为规则球形计算。更改计算公式
+        # '''
+        # # 计算新的经纬度，地心距
+        # horizontal_V = new_V * np.cos(new_theta)
+        # vertical_V = new_V * np.sin(new_theta)
     
-        earth_radius = self.state[3] + self.r_start  # 恢复绝对地心距
-        dlambda = horizontal_V * self.dt * np.sin(new_psi) / (earth_radius * np.cos(self.state[2] + self.latitude_start))
-        dphi = horizontal_V * self.dt * np.cos(new_psi) / earth_radius
-        dr = vertical_V * self.dt
+        # earth_radius = self.state[3] + self.r_start  # 恢复绝对地心距
+        # dlambda = horizontal_V * self.dt * np.sin(new_psi) / (earth_radius * np.cos(self.state[2] + self.latitude_start))
+        # dphi = horizontal_V * self.dt * np.cos(new_psi) / earth_radius
+        # dr = vertical_V * self.dt
     
-        # 更新状态
-        new_state = np.array([
-            new_V,
-            self.state[1] + dlambda,  # 经度相对值
-            self.state[2] + dphi,      # 纬度相对值
-            self.state[3] + dr,        # 地心距相对值
-            new_psi,
-            new_theta
-        ])
+        # # 更新状态
+        # new_state = np.array([
+        #     new_V,
+        #     self.state[1] + dlambda,  # 经度相对值
+        #     self.state[2] + dphi,      # 纬度相对值
+        #     self.state[3] + dr,        # 地心距相对值
+        #     new_psi,
+        #     new_theta
+        # ])
     
         # 更新历史状态
         self.history_states.append(new_state.copy())
@@ -169,7 +196,7 @@ class DroneEnv(gym.Env):
         self.state = new_state
     
         # 准备位置数据计算奖励
-        predicted_position = new_state[1:4]  # 经度、纬度、地心距（相对值）
+        predicted_position = new_state[1:4] - np.array([self.longitude_start, self.latitude_start, self.r_start])  # 经度、纬度、地心距（相对值）
         target_position = self.target[0:3] - np.array([self.longitude_start, self.latitude_start, self.r_start])  # 目标位置（相对值）
     
         # 计算与轨迹终点的距离

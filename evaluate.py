@@ -9,7 +9,7 @@ matplotlib.use('Agg')
 
 np.random.seed(42)
 
-def evaluate_model(model, env, simulate=False, num_steps=None, n_obs=5, start_obs = 400):
+def evaluate_model(model, env, simulate=False, num_steps=None, n_obs=5, start_obs=347):
 
     if num_steps is None:
         num_steps = len(env.X)
@@ -26,24 +26,38 @@ def evaluate_model(model, env, simulate=False, num_steps=None, n_obs=5, start_ob
             env.current_episode = step
             
             if step < start_obs:
-                # 前n_obs步，从环境中获取完整观测
-                obs = env.reset()
-                action, _ = model.predict(obs, deterministic=True)
-                next_obs, _, _, _ = env.step(action)
-                # 存储当前状态用于历史记录
-                current_state = env.state.copy()
+                # 修改逻辑：直接从env.X读取历史状态，而不是通过环境迭代
+                if step == 0:
+                    # 第一步时初始化环境
+                    obs = env.reset()
+                
+                # 直接从数据中获取当前状态
+                current_state = env.X[step].copy()
+                # 转换为相对坐标
+                current_state[1] -= env.longitude_start  # 经度相对值
+                current_state[2] -= env.latitude_start   # 纬度相对值
+                current_state[3] -= env.r_start          # 地心距相对值
+                
+                # 将状态添加到历史记录
                 history_states.append(current_state)
                 if len(history_states) > n_obs:
                     history_states.pop(0)
+                
+                # 对于当前step，记录预测和目标
+                target = env.y[step]
+                predictions.append(env.X[step][1:4])  # 使用原始数据作为"预测"
+                targets.append(target)
+                
+                # 如果是最后一个start_obs之前的步骤，准备好环境状态
+                if step == start_obs - 1:
+                    # 设置环境的当前状态和历史状态
+                    env.reset()
+                    env.state = current_state
+                    env.history_states = history_states.copy()
+                    print(f'self.target = self.y[self.current_episode + self.current_step] = {env.y[env.current_episode + env.current_step]}')
 
             else:
                 # 使用历史状态构建观测
-                env.reset()
-                # 设置当前状态为上一步计算的状态
-                env.state = current_state
-                # 设置历史状态
-                env.history_states = history_states.copy()
-                
                 # 获取观测
                 trajectory_end_relative = np.array([
                     env.trajectory_end[0] - env.longitude_start,
@@ -64,11 +78,11 @@ def evaluate_model(model, env, simulate=False, num_steps=None, n_obs=5, start_ob
                 if len(history_states) > n_obs:
                     history_states.pop(0)
                 
-            target = env.target
-            # 转换为绝对坐标进行评估
-            position = env.state[1:4] + np.array([env.longitude_start, env.latitude_start, env.r_start])
-            predictions.append(position)
-            targets.append(target)
+                target = env.target
+                # 转换为绝对坐标进行评估
+                position = env.state[1:4] + np.array([env.longitude_start, env.latitude_start, env.r_start])
+                predictions.append(position)
+                targets.append(target)
 
     else:
         for step in range(num_steps):
@@ -159,7 +173,7 @@ if __name__ == "__main__":
     # X_test = np.load('./data/processed_data/processed_X_standard.npy')
     # y_test = np.load('./data/processed_data/processed_y_standard.npy')
     test_env = DroneEnv(X_test, y_test, dt=1, test=True, n_obs=args.n_obs)
-    model = PPO.load("./ckpt/20250421-075929/model_ppo_trace8.zip")
+    model = PPO.load("./ckpt/test_missile/model_ppo_trace8.zip")
 
     predictions, targets = evaluate_model(model, test_env, simulate=args.simulate, 
                                           num_steps=X_test.shape[0], n_obs=args.n_obs,

@@ -97,9 +97,8 @@ class TrainingCallback(BaseCallback):
             self.temp_rewards = []
             self.temp_distance_rewards = []
             self.temp_direction_rewards = []
+            self.temp_end_rewards = []
 
-
-            self.reset_stats()
             self.logger.dump(self.num_timesteps)
         return True
 
@@ -143,8 +142,8 @@ def train(cuda_id=0, model_save_path=None, n_obs=5, max_steps=100):
     y_train = np.load('./data/processed_data/output1-ode1_y.npy')
     env = DummyVecEnv([lambda: DroneEnv(X_train, y_train, dt=1, n_obs=n_obs)])
     
-    if model_save_path is None:
-        model_save_path = run_id
+    if model_save_path is not None:
+        run_id = model_save_path
         
     # 设置CUDA设备
     device = f"cuda:{cuda_id}" if torch.cuda.is_available() else "cpu"
