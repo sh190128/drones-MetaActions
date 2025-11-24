@@ -4,11 +4,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-RAW_DATADIR = './data/raw_data'
+RAW_DATADIR = '/home/star/helong/repos/drones/raw_data1025'
 PROCESSED_DIR = './data/processed_data'
 
+os.makedirs(PROCESSED_DIR, exist_ok=True)
+
 # 获取所有符合模式的CSV文件
-csv_files = [f for f in os.listdir(RAW_DATADIR) if f.startswith('output') and f.endswith('-ode1.csv')]
+csv_files = [f for f in os.listdir(RAW_DATADIR) if f.endswith('.csv')]
 
 for input_file_name in csv_files:
     # 构建完整的输入输出路径
@@ -25,7 +27,7 @@ for input_file_name in csv_files:
 
 
     print("原始数据行数:", len(data))
-    data = data.drop_duplicates(subset=['t'])
+    data = data.drop_duplicates(subset=['time(s)'])
     print("删除t重复值后的行数:", len(data))
 
     X = []
@@ -34,16 +36,16 @@ for input_file_name in csv_files:
     for j in range(len(data)-1):
         X.append([
             data.iloc[j]['v'],
-            data.iloc[j]['lambda'],
-            data.iloc[j]['phi'], 
+            data.iloc[j]['lambda(rad)'],
+            data.iloc[j]['phi(rad)'], 
             data.iloc[j]['r'],
-            data.iloc[j]['psi'],
-            data.iloc[j]['theta']
+            data.iloc[j]['psi(rad)'],
+            data.iloc[j]['gamma(rad)']
         ])
         
         y.append([
-            data.iloc[j+1]['lambda'],
-            data.iloc[j+1]['phi'], 
+            data.iloc[j+1]['lambda(rad)'],
+            data.iloc[j+1]['phi(rad)'], 
             data.iloc[j+1]['r']
         ])
 

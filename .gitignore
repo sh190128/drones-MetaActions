@@ -22,3 +22,6 @@ optimization_results/*
 faster/
 
 missile.py
+
+glider_policy/ckpt/
+glider_policy/glider_rnn_ppo_ft_tensorboard

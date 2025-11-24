@@ -8,3 +8,5 @@ seaborn==0.13.2
 stable_baselines3==2.3.2
 torch==2.4.1
 optuna==4.2.1
+shimmy==0.2.1
+tensorboard
